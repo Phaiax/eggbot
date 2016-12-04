@@ -11095,32 +11095,32 @@ Theres also a "SHIELD" variant for the Model A without a RJ45 connector.</descri
 <part name="GND13" library="supply1" deviceset="GND" device=""/>
 <part name="+3V5" library="supply1" deviceset="+3V3" device=""/>
 <part name="+3V6" library="supply1" deviceset="+3V3" device=""/>
-<part name="R2" library="rcl" deviceset="R-EU_" device="R0402" value="100k"/>
-<part name="R3" library="rcl" deviceset="R-EU_" device="R0402" value="100k"/>
+<part name="R2" library="rcl" deviceset="R-EU_" device="R1206" value="100k"/>
+<part name="R3" library="rcl" deviceset="R-EU_" device="R1206" value="100k"/>
 <part name="OLED1" library="con-lstb" deviceset="MA04-1" device=""/>
 <part name="P+10" library="supply1" deviceset="VCC" device=""/>
 <part name="GND14" library="supply1" deviceset="GND" device=""/>
-<part name="R4" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
-<part name="R5" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
+<part name="R4" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
+<part name="R5" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
 <part name="P+11" library="supply1" deviceset="VCC" device=""/>
 <part name="P+12" library="supply1" deviceset="VCC" device=""/>
-<part name="R6" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
-<part name="R7" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
+<part name="R6" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
+<part name="R7" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
 <part name="OLED2" library="con-lstb" deviceset="MA04-1" device=""/>
 <part name="+3V7" library="supply1" deviceset="+3V3" device=""/>
 <part name="GND15" library="supply1" deviceset="GND" device=""/>
-<part name="R8" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
-<part name="R9" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
+<part name="R8" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
+<part name="R9" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
 <part name="+3V8" library="supply1" deviceset="+3V3" device=""/>
 <part name="+3V9" library="supply1" deviceset="+3V3" device=""/>
 <part name="TERM_ANALOG" library="con-lstb" deviceset="MA04-1" device=""/>
 <part name="GND16" library="supply1" deviceset="GND" device=""/>
-<part name="R10" library="rcl" deviceset="R-EU_" device="R0402" value="4k7"/>
-<part name="C1" library="rcl" deviceset="CPOL-EU" device="E5-10.5" value="10uF"/>
+<part name="R10" library="rcl" deviceset="R-EU_" device="R1206" value="4k7"/>
+<part name="C1" library="rcl" deviceset="CPOL-EU" device="E2.5-5" value="10uF"/>
 <part name="GND17" library="supply1" deviceset="GND" device=""/>
 <part name="P+13" library="supply1" deviceset="VCC" device=""/>
-<part name="R11" library="rcl" deviceset="R-EU_" device="R0402" value="10k"/>
-<part name="R12" library="rcl" deviceset="R-EU_" device="R0402" value="10k"/>
+<part name="R11" library="rcl" deviceset="R-EU_" device="R1206" value="10k"/>
+<part name="R12" library="rcl" deviceset="R-EU_" device="R1206" value="10k"/>
 <part name="+3V10" library="supply1" deviceset="+3V3" device=""/>
 <part name="+3V11" library="supply1" deviceset="+3V3" device=""/>
 <part name="SHIFTER1" library="levelshifter" deviceset="LEVELSHIFTER" device=""/>
@@ -11139,6 +11139,22 @@ output of some integrated regulator
 within the USB2Serial chip on the
 Arduino nano.</text>
 <text x="-17.78" y="76.2" size="1.778" layer="91">TODO: Check Rasopi ground</text>
+<wire x1="-147.32" y1="-38.1" x2="-147.32" y2="147.32" width="0.1524" layer="97"/>
+<wire x1="-147.32" y1="147.32" x2="177.8" y2="147.32" width="0.1524" layer="97"/>
+<wire x1="177.8" y1="147.32" x2="177.8" y2="-10.16" width="0.1524" layer="97"/>
+<wire x1="177.8" y1="-10.16" x2="177.8" y2="-17.78" width="0.1524" layer="97"/>
+<wire x1="177.8" y1="-17.78" x2="177.8" y2="-38.1" width="0.1524" layer="97"/>
+<wire x1="177.8" y1="-38.1" x2="88.9" y2="-38.1" width="0.1524" layer="97"/>
+<wire x1="88.9" y1="-38.1" x2="-147.32" y2="-38.1" width="0.1524" layer="97"/>
+<wire x1="177.8" y1="-10.16" x2="88.9" y2="-10.16" width="0.1524" layer="97"/>
+<wire x1="88.9" y1="-10.16" x2="88.9" y2="-17.78" width="0.1524" layer="97"/>
+<wire x1="88.9" y1="-17.78" x2="88.9" y2="-38.1" width="0.1524" layer="97"/>
+<wire x1="88.9" y1="-17.78" x2="177.8" y2="-17.78" width="0.1524" layer="97"/>
+<text x="93.98" y="-15.24" size="1.778" layer="97">EGGBOT RASPBERRY MODEL B Rev2 HAT</text>
+<text x="93.98" y="-22.86" size="1.778" layer="97">Authors: Daniel Seemer</text>
+<text x="134.62" y="-27.94" size="1.778" layer="97">Last Change: 4 Dec 2016</text>
+<text x="134.62" y="-33.02" size="1.778" layer="97">State: Development, Untested</text>
+<text x="134.62" y="-22.86" size="1.778" layer="97">Revision: 0</text>
 </plain>
 <instances>
 <instance part="U$1" gate="G$1" x="111.76" y="60.96"/>
@@ -12118,6 +12134,16 @@ Arduino nano.</text>
 <wire x1="86.36" y1="15.24" x2="73.66" y2="15.24" width="0.1524" layer="91"/>
 </segment>
 </net>
+</nets>
+</sheet>
+<sheet>
+<plain>
+</plain>
+<instances>
+</instances>
+<busses>
+</busses>
+<nets>
 </nets>
 </sheet>
 </sheets>
