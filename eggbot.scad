@@ -19,8 +19,11 @@ h_laserwood = 5;
 w_groundplate = 300;
 d_groundplate = 300;
 
+h_pos_egg_center = 85;
+
 w_nema = 42.3;
-r_egg = 35/2;
+h_nema = 34;
+r_egg = 45/2;
 
 l_pen = 130;
 l_pen_tip = 10;
@@ -32,7 +35,7 @@ w_arm_levers = 25;
 l_arm_rotating = 45;
 l_arm_second = 50;
 l_pen_standout = 20;
-g_pen_to_arm = h_laserwood + 5;
+g_armmotor_arm = h_laserwood + 5;
 
 // LM8UU   8 mm    15 mm   24 mm
 h_lm8uu = 24;
@@ -45,13 +48,25 @@ r_clamp_rods = 4;
 
 h_clamp_pos = 120;
 
-w_tower = g_clamp_rods + 2*r_clamp_rods + 2*h_laserwood + 10;
+// block1 is the lower block and holds the rods.
+w_block1 = 90; // raspberry pi mount width
+d_block1 = h_nema + 10;
+h_block1 = h_pos_egg_center - w_nema/2;
+
+// block2 is a mounting plate at the back of block 1
+w_block2 = w_block1;
+d_block2 = h_laserwood;
+h_block2 = 160;
+d_block2_back_position = -d_block2-g_armmotor_arm - d_block1;
+
+w_tower = g_clamp_rods + 2*r_clamp_rods + 2*h_laserwood + 25;
 d_tower = 80;
 h_tower = 110;
 s_tower = [w_tower, d_tower, h_tower];
 s_tower_inner = [w_tower - 2*h_laserwood,
                  d_tower - 2*h_laserwood,
                  h_tower - h_laserwood];
+
 
 r_rope = 2;
 c_rope = "red";
@@ -66,11 +81,33 @@ w_numpad = 3*w_numpad_button+4*g_numpad_button;
 d_numpad = 4*w_numpad_button+5*g_numpad_button;
 c_numpad = "Silver";
 
-eggbot();
 translate([100, 0, 0])
 numpad();
 // pen();
 // groundplate();
+assembly();
+
+module assembly() {
+
+    eggbot();
+
+    // rotate([0, 0, 180])
+    translate([0, d_block2_back_position, 30])
+    pi();
+
+}
+
+module pi() {
+    translate([-41.5, 0, 0])
+    rotate([90, 0, 0])
+    union() {
+        translate([4, 103, 24.5])
+        rotate([180, 0, 0])
+        import("pi_top.stl");
+
+        import("pi_bottom.stl");
+    }
+}
 
 module groundplate() {
     translate([0,0,-5])
@@ -83,15 +120,31 @@ module eggbot() {
     egg();
     translate([0, l_arm_second, 0])
     nema17();
-    translate([0, 0, 80])
+    translate([0, 0, h_pos_egg_center])
     rotate([90, 0, 180])
     arm();
 
     clamp();
 
 
-    housing();
+    block1();
+    block2();
 
+}
+
+
+module block1() {
+    color("LightBlue", 0.4) {
+        translate([-w_block1/2, -d_block1-g_armmotor_arm, 0])
+        cube(size=[w_block1, d_block1, h_block1], center=false);
+    }
+}
+
+module block2() {
+    color("LightBlue", 0.4) {
+        translate([-w_block2/2, d_block2_back_position, 0])
+        cube(size=[w_block2, d_block2, h_block2], center=false);
+    }
 }
 
 module housing() {
@@ -250,7 +303,7 @@ module clamp() {
 module arm() {
 
     union() {
-        translate([0, 0, -37-g_pen_to_arm])
+        translate([0, 0, -37-g_armmotor_arm])
         nema17();
 
         translate([-w_arm_levers/2, -w_arm_levers/2, 0])
@@ -301,4 +354,6 @@ module egg() {
         translate([0,0,r_egg*0.7])
         sphere(r_egg*0.7);
     }
+    h_egg = r_egg+2*0.7*r_egg;
+    echo(str("Eihöhe: ", h_egg, " mm"));
 }
