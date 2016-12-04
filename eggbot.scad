@@ -1,6 +1,7 @@
 
 use <Nema17.scad>
 use <servosg90.scad>
+use <gears_spur.scad>
 
 // w width
 // d depth
@@ -45,6 +46,7 @@ ro_lm8uu = 15/2;
 h_clamp_rods = 200;
 g_clamp_rods = w_nema + 3;
 r_clamp_rods = 4;
+g_clamp_rod_centers = g_clamp_rods + r_clamp_rods;
 
 h_clamp_pos = 120;
 
@@ -101,9 +103,9 @@ module pi() {
     translate([-41.5, 0, 0])
     rotate([90, 0, 0])
     union() {
-        translate([4, 103, 24.5])
-        rotate([180, 0, 0])
-        import("pi_top.stl");
+        //translate([4, 103, 24.5])
+        //rotate([180, 0, 0])
+        //import("pi_top.stl");
 
         import("pi_bottom.stl");
     }
@@ -120,9 +122,13 @@ module eggbot() {
     egg();
     translate([0, l_arm_second, 0])
     nema17();
+
     translate([0, 0, h_pos_egg_center])
     rotate([90, 0, 180])
     arm();
+
+    ! translate([0, 0, h_pos_egg_center])
+    arm_elevator();
 
     clamp();
 
@@ -176,6 +182,15 @@ module numpad() {
     cube(size=[w_numpad, d_numpad, 2]);
 }
 
+module bearing(ri=ri_lm8uu, ro=ro_lm8uu, h=h_lm8uu) {
+    // LM8UU   8 mm    15 mm   24 mm
+    difference() {
+        cylinder(h=h, r=ro);
+        translate([0, 0, -1])
+        cylinder(h=h+2, r=ri);
+    }
+}
+
 module clamp() {
 
     module spring(height=50, radius=8, rounds=8) {
@@ -189,14 +204,7 @@ module clamp() {
     }
 
 
-    module bearing() {
-        // LM8UU   8 mm    15 mm   24 mm
-        difference() {
-            cylinder(h=h_lm8uu, r=ro_lm8uu);
-            translate([0, 0, -1])
-            cylinder(h=h_lm8uu+2, r=ri_lm8uu);
-        }
-    }
+
     module rod() {
         cylinder(h=h_clamp_rods, r=r_clamp_rods, center=false, $fn=20);
         translate([0, 0, h_clamp_pos])
@@ -300,38 +308,76 @@ module clamp() {
 
 }
 
+module arm_elevator() {
+    d_arm_elevator_plate = 4;
+
+    for(i = [-1, 1]) {
+        translate([i*g_clamp_rod_centers/2, 0, 0])
+        union() {
+            rotate([0, 0, 0])
+            bearing();
+
+            color("red")
+            bearing(ri=ro_lm8uu, ro=ro_lm8uu+d_arm_elevator_plate);
+        }
+    }
+
+    // plate
+    difference() {
+        translate([-g_clamp_rod_centers/2,ro_lm8uu,0])
+        cube([g_clamp_rod_centers, d_arm_elevator_plate, w_nema]);
+
+        translate([0, ro_lm8uu+d_arm_elevator_plate+5, w_nema/2])
+        rotate([90, 0, 0])
+        cylinder(r=10, h=d_arm_elevator_plate+10);
+    }
+
+    translate([0,ro_lm8uu+d_arm_elevator_plate+6,w_nema/2])
+    rotate([90,0,0])
+    gear();
+
+}
+
 module arm() {
 
-    union() {
-        translate([0, 0, -37-g_armmotor_arm])
-        nema17();
 
+    // pen nema
+    translate([0, 0, -37-g_armmotor_arm])
+    nema17();
+
+
+    union() {
+
+        // first part of arm
         translate([-w_arm_levers/2, -w_arm_levers/2, 0])
         cube(size=[l_arm_rotating + w_arm_levers/2,
                    w_arm_levers,
                    h_arm_levers],
                    center=false);
+
+        // second part of arm
+        translate([l_arm_rotating, 0, 0])
+        rotate([0, 1, 0])
+        union() {
+            rotate([0, -90, 0])
+            translate([0, -w_arm_levers/2, 0])
+            cube(size=[l_arm_second + w_arm_levers/2,
+                       w_arm_levers,
+                       h_arm_levers],
+                       center=false);
+
+            translate([0, 0, l_arm_second])
+            rotate([0, 90, 0])
+            translate([0, 0, -l_pen_standout])
+            pen();
+        }
+
+        // servo
+        translate([l_arm_rotating-15, -21, h_arm_levers])
+        rotate([90, 0, 180])
+        servoSG90();
+
     }
-
-    translate([l_arm_rotating, 0, 0])
-    rotate([0, 0, 0])
-    union() {
-        rotate([0, -90, 0])
-        translate([0, -w_arm_levers/2, 0])
-        cube(size=[l_arm_second + w_arm_levers/2,
-                   w_arm_levers,
-                   h_arm_levers],
-                   center=false);
-
-        translate([0, 0, l_arm_second])
-        rotate([0, 90, 0])
-        translate([0, 0, -l_pen_standout])
-        pen();
-    }
-
-    translate([l_arm_rotating-15, -21, h_arm_levers])
-    rotate([90, 0, 180])
-    servoSG90();
 
 }
 
