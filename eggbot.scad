@@ -1,7 +1,8 @@
 
 use <Nema17.scad>
 use <servosg90.scad>
-use <gears_spur.scad>
+//use <gears_spur.scad>
+use <lm8uumount.scad>
 
 // w width
 // d depth
@@ -13,6 +14,11 @@ use <gears_spur.scad>
 // g gap
 // s size (3array)
 // c color
+// a alpha
+// x pos x
+// y pos y
+// z pos z
+// mx, my, mz minus pos x,y,z
 // all in mm
 
 h_laserwood = 5;
@@ -24,17 +30,26 @@ h_pos_egg_center = 85;
 
 w_nema = 42.3;
 h_nema = 34;
+h_nema_shaft = 20;
 r_egg = 45/2;
+z_egg_pos = 60;
+h_egg = r_egg+2*0.7*r_egg;
+
+w_bearing_mount = 22;
+d_bearing_mount = 11.5; // from bearing center to mount front
+l_bearing_mount = 29;
 
 l_pen = 130;
 l_pen_tip = 10;
 r_pen = 10/2;
 
+y_egg_center = 50;
+
 h_arm_levers = 5;
 w_arm_levers = 25;
 
 l_arm_rotating = 45;
-l_arm_second = 50;
+l_arm_second = y_egg_center;
 l_pen_standout = 20;
 g_armmotor_arm = h_laserwood + 5;
 
@@ -43,25 +58,50 @@ h_lm8uu = 24;
 ri_lm8uu = 8/2;
 ro_lm8uu = 15/2;
 
-h_clamp_rods = 200;
-g_clamp_rods = w_nema + 3;
-r_clamp_rods = 4;
-g_clamp_rod_centers = g_clamp_rods + r_clamp_rods;
+ro_608zz = 22/2;
+ri_608zz = 8/2;
+h_608zz = 7;
 
-h_clamp_pos = 120;
+h_rods = 200;
+g_rods_inner = w_nema + w_bearing_mount;
+r_rods = 4;
+g_rod_centers = g_rods_inner + r_rods;
+my_rod = h_laserwood + r_rods + 10;
+x_rod = g_rod_centers/2;
+
+
+// distance between two bearing mounts that slide the rods
+g_bearing_mounts = g_rod_centers - w_bearing_mount;
+
+// dostance from bearing mount front to egg center
+g_bearing_mount_egg_y = y_egg_center + my_rod - d_bearing_mount;
+
+h_clamp_pos = 130;
+c_clamp = "Olive";
+a_clamp = 0.8;
+
+
+h_linearmoovingtooth = 130;
+// then they meet in front of the rod
+w_linearmoovingtooth = w_bearing_mount/2;
+
+r_gear = g_rod_centers/2;
+d_gear = 3;
+c_gears = "DarkOrchid";
+a_gears = 0.9;
 
 // block1 is the lower block and holds the rods.
 w_block1 = 90; // raspberry pi mount width
 d_block1 = h_nema + 10;
-h_block1 = h_pos_egg_center - w_nema/2;
+h_block1 = 50;
 
 // block2 is a mounting plate at the back of block 1
 w_block2 = w_block1;
 d_block2 = h_laserwood;
 h_block2 = 160;
-d_block2_back_position = -d_block2-g_armmotor_arm - d_block1;
+d_block2_back_position = -d_block2-my_rod+d_bearing_mount - d_block1;
 
-w_tower = g_clamp_rods + 2*r_clamp_rods + 2*h_laserwood + 25;
+w_tower = g_rods_inner + 2*r_rods + 2*h_laserwood + 25;
 d_tower = 80;
 h_tower = 110;
 s_tower = [w_tower, d_tower, h_tower];
@@ -73,7 +113,7 @@ s_tower_inner = [w_tower - 2*h_laserwood,
 r_rope = 2;
 c_rope = "red";
 
-g_clamp_topbar = h_clamp_rods-h_clamp_pos-h_lm8uu;
+g_clamp_topbar = h_rods-h_clamp_pos-h_lm8uu;
 
 
 w_numpad_button = 10;
@@ -83,19 +123,47 @@ w_numpad = 3*w_numpad_button+4*g_numpad_button;
 d_numpad = 4*w_numpad_button+5*g_numpad_button;
 c_numpad = "Silver";
 
-translate([100, 0, 0])
-numpad();
-// pen();
-// groundplate();
+
+include <small_stuff.scad>
+include <arm.scad>
+include <clamp.scad>
+include <eggholder.scad>
+
+
+translate([-200, 0, 0])
 assembly();
+
+lay_out();
+
+translate([0, 0, -10])
+eggholder();
+
+translate([0, 0, 0])
+topeggholder();
+
+module lay_out() {
+   clamp();
+
+   translate([100, 0, 0])
+   numpad();
+
+   translate([80, 80, 0])
+   arm_elevator();
+
+   translate([160, 80, 0])
+   arm();
+
+   translate([40, 160, 0])
+   bearingMount();
+}
 
 module assembly() {
 
     eggbot();
 
     // rotate([0, 0, 180])
-    translate([0, d_block2_back_position, 30])
-    pi();
+    //translate([0, d_block2_back_position, 30])
+    //pi();
 
 }
 
@@ -118,20 +186,32 @@ module groundplate() {
 
 
 module eggbot() {
-    translate([0, l_arm_second, 60])
+    translate([0, l_arm_second, z_egg_pos])
     egg();
     translate([0, l_arm_second, 0])
-    nema17();
+    union() {
+        nema17();
+        translate([0, 0, 34])
+        eggholder_moveup();
+    }
 
     translate([0, 0, h_pos_egg_center])
     rotate([90, 0, 180])
     arm();
 
-    ! translate([0, 0, h_pos_egg_center])
+    translate([0, -my_rod, h_pos_egg_center-w_nema/2])
+    rotate([90, 0, 0])
     arm_elevator();
 
+    translate([0, -my_rod, 0])
+    rods();
+
+
+    translate([0, -my_rod, h_clamp_pos])
     clamp();
 
+    translate([0, y_egg_center, z_egg_pos+h_egg])
+    topeggholder();
 
     block1();
     block2();
@@ -141,8 +221,12 @@ module eggbot() {
 
 module block1() {
     color("LightBlue", 0.4) {
-        translate([-w_block1/2, -d_block1-g_armmotor_arm, 0])
+        translate([-w_block1/2, -d_block1-my_rod+d_bearing_mount, 0])
         cube(size=[w_block1, d_block1, h_block1], center=false);
+    }
+    color(c_gears, a_gears) {
+        translate([-w_block1/2, -my_rod+d_bearing_mount, 0])
+        cube(size=[w_linearmoovingtooth, d_gear, h_linearmoovingtooth], center=false);
     }
 }
 
@@ -182,224 +266,11 @@ module numpad() {
     cube(size=[w_numpad, d_numpad, 2]);
 }
 
-module bearing(ri=ri_lm8uu, ro=ro_lm8uu, h=h_lm8uu) {
-    // LM8UU   8 mm    15 mm   24 mm
-    difference() {
-        cylinder(h=h, r=ro);
-        translate([0, 0, -1])
-        cylinder(h=h+2, r=ri);
-    }
-}
 
-module clamp() {
-
-    module spring(height=50, radius=8, rounds=8) {
-        color("orange")
-        linear_extrude(height = height,
-                       center = false,
-                       convexity = 10,
-                       twist = 360*rounds)
-        translate([radius, 0, 0])
-        circle(r = 1);
-    }
-
-
-
-    module rod() {
-        cylinder(h=h_clamp_rods, r=r_clamp_rods, center=false, $fn=20);
-        translate([0, 0, h_clamp_pos])
-        union() {
-            bearing();
-            rotate([0, 0, 15])
-            lever(l_lever);
-            translate([0, 0, h_lm8uu])
-            spring(height=g_clamp_topbar);
-        }
-    }
-    module lever(l_lever) {
-        ro = ro_lm8uu+3;
-        color("Green")
-        difference() {
-            union() {
-                translate([-ro, 0, 0])
-                rotate([90, 0, 90])
-                linear_extrude(height=h_laserwood)
-                polygon(points=[[0,0], // left bottom
-                                [l_lever,0], // right bottom
-                                [l_lever,h_lm8uu-5], // right top
-                                [0,h_lm8uu]]); // left top
-
-                cylinder(h=h_lm8uu, r=ro, center=false, $fn=20);
-
-            }
-            translate([0, 0, -1])
-            cylinder(h=h_lm8uu+2, r=ro_lm8uu, center=false, $fn=20);
-        }
-    }
-
-    module arrow3d() {
-        translate([0, 0, l_pen_tip])
-        cylinder(h=l_pen_tip, r=r_pen, center=false, $fn=20);
-
-        // tip
-        cylinder(h=l_pen_tip, r1=0, r2=r_pen*2, center=false, $fn=20);
-
-    }
-
-
-
-    d_rods_pos = h_laserwood + r_clamp_rods + 10;
-    w_rods_pos = r_clamp_rods + g_clamp_rods/2;
-    l_lever = sqrt((l_arm_second+d_rods_pos)*(l_arm_second+d_rods_pos)
-                   + g_clamp_rods/2*g_clamp_rods/2);
-
-    // lever(l_lever);
-
-    translate([0, -d_rods_pos, 0])
-    union() {
-        translate([w_rods_pos, 0, 0])
-        rod();
-
-        translate([-w_rods_pos, 0, 0])
-        mirror([1, 0, 0])
-        rod();
-
-        // connection peace between the two bearings
-        w_connection_piece = (g_clamp_rods - ro_lm8uu);
-        translate([-w_connection_piece/2, 0, h_clamp_pos])
-        color("green")
-        cube(size=[w_connection_piece, h_laserwood, h_lm8uu], center=false);
-
-        // topbar
-        d_topbar = 2*(r_clamp_rods+5);
-        w_topbar = (g_clamp_rods + 30);
-        w_topbar_extension = 20;
-        translate([-w_topbar/2, -d_topbar/2, h_clamp_rods])
-        cube(size=[w_topbar + w_topbar_extension,
-                   d_topbar,
-                   h_laserwood*2],
-                   center=false);
-
-        // egg_top_holder
-        translate([0, l_arm_second+d_rods_pos, h_clamp_pos])
-        cylinder(h=h_lm8uu-5, r=10, center=false, $fn=20);
-
-        // rope
-        translate([0, 0, h_clamp_pos + h_lm8uu -10])
-        color(c_rope)
-        cylinder(h=g_clamp_topbar+10, r=r_rope, center=false, $fn=20);
-
-        translate([w_topbar/2+w_topbar_extension - 10,
-                   0,
-                   h_clamp_rods])
-
-        union() {
-            l_rope_left = h_clamp_rods*0.5;
-
-            rotate([180, 0, 0])
-            color(c_rope)
-            cylinder(h=l_rope_left, r=r_rope, center=false, $fn=20);
-
-            translate([0, 0, -l_rope_left-20])
-            arrow3d();
-        }
-
-    }
-
-}
-
-module arm_elevator() {
-    d_arm_elevator_plate = 4;
-
-    for(i = [-1, 1]) {
-        translate([i*g_clamp_rod_centers/2, 0, 0])
-        union() {
-            rotate([0, 0, 0])
-            bearing();
-
-            color("red")
-            bearing(ri=ro_lm8uu, ro=ro_lm8uu+d_arm_elevator_plate);
-        }
-    }
-
-    // plate
-    difference() {
-        translate([-g_clamp_rod_centers/2,ro_lm8uu,0])
-        cube([g_clamp_rod_centers, d_arm_elevator_plate, w_nema]);
-
-        translate([0, ro_lm8uu+d_arm_elevator_plate+5, w_nema/2])
-        rotate([90, 0, 0])
-        cylinder(r=10, h=d_arm_elevator_plate+10);
-    }
-
-    translate([0,ro_lm8uu+d_arm_elevator_plate+6,w_nema/2])
-    rotate([90,0,0])
-    gear();
-
-}
-
-module arm() {
-
-
-    // pen nema
-    translate([0, 0, -37-g_armmotor_arm])
-    nema17();
-
-
-    union() {
-
-        // first part of arm
-        translate([-w_arm_levers/2, -w_arm_levers/2, 0])
-        cube(size=[l_arm_rotating + w_arm_levers/2,
-                   w_arm_levers,
-                   h_arm_levers],
-                   center=false);
-
-        // second part of arm
-        translate([l_arm_rotating, 0, 0])
-        rotate([0, 1, 0])
-        union() {
-            rotate([0, -90, 0])
-            translate([0, -w_arm_levers/2, 0])
-            cube(size=[l_arm_second + w_arm_levers/2,
-                       w_arm_levers,
-                       h_arm_levers],
-                       center=false);
-
-            translate([0, 0, l_arm_second])
-            rotate([0, 90, 0])
-            translate([0, 0, -l_pen_standout])
-            pen();
-        }
-
-        // servo
-        translate([l_arm_rotating-15, -21, h_arm_levers])
-        rotate([90, 0, 180])
-        servoSG90();
-
-    }
-
+module torus(ri=2, ro=7) {
+    rotate_extrude(convexity = 10, $fn = 20)
+    translate([ro, 0, 0])
+    circle(r = ri, $fn = 20);
 }
 
 
-
-module pen() {
-    translate([0, 0, l_pen_tip])
-    cylinder(h=l_pen, r=r_pen, center=false, $fn=20);
-
-    cylinder(h=l_pen_tip, r1=0, r2=r_pen, center=false, $fn=20);
-}
-
-
-module egg() {
-
-    translate([0, 0, r_egg])
-    hull() {
-        sphere(r_egg);
-
-        translate([0,0,r_egg*0.7])
-        sphere(r_egg*0.7);
-    }
-    h_egg = r_egg+2*0.7*r_egg;
-    echo(str("Eihöhe: ", h_egg, " mm"));
-}
