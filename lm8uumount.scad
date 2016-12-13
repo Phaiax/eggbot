@@ -13,11 +13,11 @@ module bearingMount() {
 		translate([0,0,mountHeight/2]) cube([mountLength,mountWidth,mountHeight],center=true);
 		union() {
 			//clearance hole
-			translate([0,0,11.5]) rotate([0,90,0]) cylinder(mountLength+1,rodClearance/2,rodClearance/2,center=true,$fn=36);
+			translate([0,0,11.5]) rotate([0,90,0]) cylinder(mountLength+1,rodClearance/2,rodClearance/2,center=true);
 			translate([0,0,16.5]) rotate([0,90,0]) cube([rodClearance,rodClearance,mountLength+1],center=true);
 
 			// bearing hole
-			translate([0,0,11.5]) rotate([0,90,0]) cylinder(bearingLength,bearingDiameter/2,bearingDiameter/2,center=true,$fn=36);
+			translate([0,0,11.5]) rotate([0,90,0]) cylinder(bearingLength,bearingDiameter/2,bearingDiameter/2,center=true);
 			translate([0,0,16.5]) rotate([0,90,0]) cube([bearingDiameter-1,bearingDiameter-1,bearingLength],center=true);
 			// cable clip hole
 			translate([0,0,15]) rotate([0,90,0]) cube([14,mountWidth+1,cableTieWidth],center=true);

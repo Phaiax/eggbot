@@ -78,7 +78,7 @@ g_bearing_mount_egg_y = y_egg_center + my_rod - d_bearing_mount;
 
 h_clamp_pos = 130;
 c_clamp = "Olive";
-a_clamp = 0.8;
+a_clamp = 1;
 
 
 h_linearmoovingtooth = 130;
@@ -88,7 +88,7 @@ w_linearmoovingtooth = w_bearing_mount/2;
 r_gear = g_rod_centers/2;
 d_gear = 3;
 c_gears = "DarkOrchid";
-a_gears = 0.9;
+a_gears = 1;
 
 // block1 is the lower block and holds the rods.
 w_block1 = 90; // raspberry pi mount width
@@ -130,16 +130,16 @@ include <clamp.scad>
 include <eggholder.scad>
 
 
-translate([-200, 0, 0])
+//translate([-200, 0, 0])
 assembly();
 
-lay_out();
+//lay_out();
 
-translate([0, 0, -10])
-eggholder();
+//translate([0, 0, -10])
+//eggholder();
 
-translate([0, 0, 0])
-topeggholder();
+//translate([0, 0, 0])
+//topeggholder();
 
 module lay_out() {
    clamp();
@@ -190,9 +190,9 @@ module eggbot() {
     egg();
     translate([0, l_arm_second, 0])
     union() {
-        nema17();
-        translate([0, 0, 34])
-        eggholder_moveup();
+       nema17();
+       translate([0, 0, 34])
+       eggholder_moveup();
     }
 
     translate([0, 0, h_pos_egg_center])

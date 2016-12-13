@@ -48,14 +48,14 @@ module eggholder() {
     cylinder(r=(ro_eggholder_cyl+ri_eggholder_cyl)/2,
              h=h_eggholder_insideplate);
 
-    // visible gummi ring
-    color(c_eggholder, 0.7)
-    torus(ri_eggholder_gummi, r_eggholder_ring);
+    //// visible gummi ring
+    //color(c_eggholder, 0.7)
+    //torus(ri_eggholder_gummi, r_eggholder_ring);
 
     // visible nema shaft
-    color(c_eggholder, 0.7)
-    translate([0, 0, -mz_eggholder_nemashaft_top - h_nema_shaft ])
-    nema17shaft();
+    //color(c_eggholder, 0.7)
+    //translate([0, 0, -mz_eggholder_nemashaft_top - h_nema_shaft ])
+    //nema17shaft();
 }
 
 h_topeggholder_cyl1 = 5;
@@ -84,8 +84,8 @@ module topeggholder() {
     //         h=h_eggholder_insideplate);
 
     // visible gummi ring
-    color(c_eggholder, 0.7)
-    torus(ri_eggholder_gummi, r_eggholder_ring);
+    // color(c_eggholder, 0.7)
+    // torus(ri_eggholder_gummi, r_eggholder_ring);
 
     // cylinder that touches to bearing
     color(c_eggholder)

@@ -19,7 +19,7 @@ module clamp() {
         translate([i*g_rod_centers/2, 0, 0])
         union() {
             bearing_with_mount(c_clamp, a_clamp);
-            spring(height=g_clamp_topbar);
+            //spring(height=g_clamp_topbar);
         }
     }
 

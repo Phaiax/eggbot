@@ -26,27 +26,27 @@ module servoSG90() {
                 }
                 // top big cylinder
                 translate([l/2,l/2,h]) {
-                    cylinder(d=l, h=topCylinderH, $fn=180);
+                    cylinder(d=l, h=topCylinderH, $fn=20);
                 }
                 // top small cylinder
                 translate([l, l/2, h]) {
-                    cylinder(d=smallTopCylinderD, h=topCylinderH, $fn=180);
+                    cylinder(d=smallTopCylinderD, h=topCylinderH, $fn=20);
                 }
             }
             translate([l/2,l/2, h + topCylinderH]) {
                 color("white") {
-                    cylinder(d=axisD,h=axisH, $fn=180);
+                    cylinder(d=axisD,h=axisH, $fn=20);
                 }
             }
         }
         translate([-(plateL - L) / 2 + screwHoleCenter, l/2, plateHPos]) {
-            cylinder(d=screwHoleD, h=10, $fn=180, center=true);
+            cylinder(d=screwHoleD, h=10, $fn=20, center=true);
         }
         translate([-(plateL - L) / 2 - 1, l / 2 - holeSize / 2, plateHPos - 1]) {
             cube([3,holeSize,4]);
         }
         translate([plateL - (plateL - L) / 2 - screwHoleCenter, l / 2, plateHPos - 1]) {
-            cylinder(d=screwHoleD, h=10, $fn=180, center=true);
+            cylinder(d=screwHoleD, h=10, $fn=20, center=true);
         }
         translate([plateL- (plateL - L) / 2 - screwHoleCenter, l / 2 - holeSize / 2, plateHPos -1]) {
             cube([3,holeSize,4]);
