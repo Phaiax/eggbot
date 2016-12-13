@@ -1,0 +1,7 @@
+[package]
+name = "hostcontrol"
+version = "0.1.0"
+authors = ["Phaiax <phaiax-git@invisibletower.de>"]
+
+[dependencies]
+serial = "0.3.4"
