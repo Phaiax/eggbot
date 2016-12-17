@@ -1,0 +1,931 @@
+/*
+This file is part of Repetier-Firmware.
+
+Repetier-Firmware is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Repetier-Firmware is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Repetier-Firmware.  If not, see <http://www.gnu.org/licenses/>.
+
+This firmware is a nearly complete rewrite of the sprinter firmware
+by kliment (https://github.com/kliment/Sprinter)
+which based on Tonokip RepRap firmware rewrite based off of Hydra-mmm firmware.
+*/
+
+#include "Repetier.h"
+
+const int8_t sensitive_pins[] PROGMEM = SENSITIVE_PINS; // Sensitive pin list for M42
+int Commands::lowestRAMValue = MAX_RAM;
+int Commands::lowestRAMValueSend = MAX_RAM;
+
+void Commands::commandLoop() {
+    while(true) {
+#ifdef DEBUG_PRINT
+        debugWaitLoop = 1;
+#endif
+//!        if(!Printer::isBlockingReceive()) {
+            GCode::readFromSerial();
+            GCode *code = GCode::peekCurrentCommand();
+            //UI_SLOW; // do longer timed user interface action
+            UI_MEDIUM; // do check encoder
+            if(code) {
+                Commands::executeGCode(code);
+                code->popCurrentCommand();
+            }
+//!        } else {
+            GCode::keepAlive(Paused);
+            UI_MEDIUM;
+        }
+        Printer::defaultLoopActions();
+    }
+}
+
+void Commands::checkForPeriodicalActions(bool allowNewMoves) {
+    Printer::handleInterruptEvent();
+    EVENT_PERIODICAL;
+    if(!executePeriodical) return; // gets true every 100ms
+    executePeriodical = 0;
+    EVENT_TIMER_100MS;
+    Extruder::manageTemperatures();
+    if(--counter500ms == 0) {
+        if(manageMonitor)
+            writeMonitor();
+        counter500ms = 5;
+        EVENT_TIMER_500MS;
+    }
+    // If called from queueDelta etc. it is an error to start a new move since it
+    // would invalidate old computation resulting in unpredicted behavior.
+    // lcd controller can start new moves, so we disallow it if called from within
+    // a move command.
+    UI_SLOW(allowNewMoves);
+}
+
+/** \brief Waits until movement cache is empty.
+
+Some commands expect no movement, before they can execute. This function
+waits, until the steppers are stopped. In the meanwhile it buffers incoming
+commands and manages temperatures.
+*/
+void Commands::waitUntilEndOfAllMoves() {
+#ifdef DEBUG_PRINT
+    debugWaitLoop = 8;
+#endif
+    while(PrintLine::hasLines()) {
+        GCode::readFromSerial();
+        checkForPeriodicalActions(false);
+        GCode::keepAlive(Processing);
+        UI_MEDIUM;
+    }
+}
+
+void Commands::waitUntilEndOfAllBuffers() {
+    GCode *code = NULL;
+#ifdef DEBUG_PRINT
+    debugWaitLoop = 9;
+#endif
+    while(PrintLine::hasLines() || (code != NULL)) {
+        GCode::readFromSerial();
+        code = GCode::peekCurrentCommand();
+        UI_MEDIUM; // do check encoder
+        if(code) {
+#if SDSUPPORT
+            if(sd.savetosd) {
+                if(!(code->hasM() && code->M == 29))   // still writing to file
+                    sd.writeCommand(code);
+                else
+                    sd.finishWrite();
+#if ECHO_ON_EXECUTE
+                code->echoCommand();
+#endif
+            } else
+#endif
+                Commands::executeGCode(code);
+            code->popCurrentCommand();
+        }
+        Commands::checkForPeriodicalActions(false); // only called from memory
+        UI_MEDIUM;
+    }
+}
+
+void Commands::printCurrentPosition(FSTRINGPARAM(s)) {
+    float x, y, z;
+    Printer::realPosition(x, y, z);
+    if (isnan(x) || isinf(x) || isnan(y) || isinf(y) || isnan(z) || isinf(z)) {
+        Com::printErrorFLN(s); // flag where the error condition came from
+    }
+    x += Printer::coordinateOffset[X_AXIS];
+    y += Printer::coordinateOffset[Y_AXIS];
+    z += Printer::coordinateOffset[Z_AXIS];
+    Com::printF(Com::tXColon, x * (Printer::unitIsInches ? 0.03937 : 1), 2);
+    Com::printF(Com::tSpaceYColon, y * (Printer::unitIsInches ? 0.03937 : 1), 2);
+    Com::printF(Com::tSpaceZColon, z * (Printer::unitIsInches ? 0.03937 : 1), 3);
+    Com::printFLN(Com::tSpaceEColon, Printer::currentPositionSteps[E_AXIS] * Printer::invAxisStepsPerMM[E_AXIS] * (Printer::unitIsInches ? 0.03937 : 1), 4);
+    //Com::printF(PSTR("OffX:"),Printer::offsetX); // to debug offset handling
+    //Com::printFLN(PSTR(" OffY:"),Printer::offsetY);
+}
+
+void Commands::changeFeedrateMultiply(int factor) {
+    if(factor < 25) factor = 25;
+    if(factor > 500) factor = 500;
+    Printer::feedrate *= (float)factor / (float)Printer::feedrateMultiply;
+    Printer::feedrateMultiply = factor;
+    Com::printFLN(Com::tSpeedMultiply, factor);
+}
+
+
+
+#if defined(X_MS1_PIN) && X_MS1_PIN > -1
+void microstepMS(uint8_t driver, int8_t ms1, int8_t ms2) {
+    if(ms1 > -1) switch(driver) {
+            case 0:
+#if X_MS1_PIN > -1
+                WRITE( X_MS1_PIN,ms1);
+#endif
+                break;
+            case 1:
+#if Y_MS1_PIN > -1
+                WRITE( Y_MS1_PIN,ms1);
+#endif
+                break;
+            case 2:
+#if Z_MS1_PIN > -1
+                WRITE( Z_MS1_PIN,ms1);
+#endif
+                break;
+            case 3:
+#if E0_MS1_PIN > -1
+                WRITE(E0_MS1_PIN,ms1);
+#endif
+                break;
+            case 4:
+#if E1_MS1_PIN > -1
+                WRITE(E1_MS1_PIN,ms1);
+#endif
+                break;
+        }
+    if(ms2 > -1) switch(driver) {
+            case 0:
+#if X_MS2_PIN > -1
+                WRITE( X_MS2_PIN,ms2);
+#endif
+                break;
+            case 1:
+#if Y_MS2_PIN > -1
+                WRITE( Y_MS2_PIN,ms2);
+#endif
+                break;
+            case 2:
+#if Z_MS2_PIN > -1
+                WRITE( Z_MS2_PIN,ms2);
+#endif
+                break;
+            case 3:
+#if E0_MS2_PIN > -1
+                WRITE(E0_MS2_PIN,ms2);
+#endif
+                break;
+            case 4:
+#if E1_MS2_PIN > -1
+                WRITE(E1_MS2_PIN,ms2);
+#endif
+                break;
+        }
+}
+
+void microstepMode(uint8_t driver, uint8_t stepping_mode) {
+    switch(stepping_mode) {
+        case 1:
+            microstepMS(driver,MICROSTEP1);
+            break;
+        case 2:
+            microstepMS(driver,MICROSTEP2);
+            break;
+        case 4:
+            microstepMS(driver,MICROSTEP4);
+            break;
+        case 8:
+            microstepMS(driver,MICROSTEP8);
+            break;
+        case 16:
+            microstepMS(driver,MICROSTEP16);
+            break;
+        case 32:
+            microstepMS(driver,MICROSTEP32);
+            break;
+    }
+}
+
+void microstepReadings() {
+    Com::printFLN(Com::tMS1MS2Pins);
+#if X_MS1_PIN > -1 && X_MS2_PIN > -1
+    Com::printF(Com::tXColon,READ(X_MS1_PIN));
+    Com::printFLN(Com::tComma,READ(X_MS2_PIN));
+#elif X_MS1_PIN > -1
+    Com::printFLN(Com::tXColon,READ(X_MS1_PIN));
+#endif
+#if Y_MS1_PIN > -1 && Y_MS2_PIN > -1
+    Com::printF(Com::tYColon,READ(Y_MS1_PIN));
+    Com::printFLN(Com::tComma,READ(Y_MS2_PIN));
+#elif Y_MS1_PIN > -1
+    Com::printFLN(Com::tYColon,READ(Y_MS1_PIN));
+#endif
+#if Z_MS1_PIN > -1 && Z_MS2_PIN > -1
+    Com::printF(Com::tZColon,READ(Z_MS1_PIN));
+    Com::printFLN(Com::tComma,READ(Z_MS2_PIN));
+#elif Z_MS1_PIN > -1
+    Com::printFLN(Com::tZColon,READ(Z_MS1_PIN));
+#endif
+#if E0_MS1_PIN > -1 && E0_MS2_PIN > -1
+    Com::printF(Com::tE0Colon,READ(E0_MS1_PIN));
+    Com::printFLN(Com::tComma,READ(E0_MS2_PIN));
+#elif E0_MS1_PIN > -1
+    Com::printFLN(Com::tE0Colon,READ(E0_MS1_PIN));
+#endif
+#if E1_MS1_PIN > -1 && E1_MS2_PIN > -1
+    Com::printF(Com::tE1Colon,READ(E1_MS1_PIN));
+    Com::printFLN(Com::tComma,READ(E1_MS2_PIN));
+#elif E1_MS1_PIN > -1
+    Com::printFLN(Com::tE1Colon,READ(E1_MS1_PIN));
+#endif
+}
+#endif
+
+void microstepInit() {
+#if defined(X_MS1_PIN) && X_MS1_PIN > -1
+    const uint8_t microstep_modes[] = MICROSTEP_MODES;
+#if X_MS1_PIN > -1
+    SET_OUTPUT(X_MS1_PIN);
+#endif
+#if Y_MS1_PIN > -1
+    SET_OUTPUT(Y_MS1_PIN);
+#endif
+#if Z_MS1_PIN > -1
+    SET_OUTPUT(Z_MS1_PIN);
+#endif
+#if E0_MS1_PIN > -1
+    SET_OUTPUT(E0_MS1_PIN);
+#endif
+#if E1_MS1_PIN > -1
+    SET_OUTPUT(E1_MS1_PIN);
+#endif
+#if X_MS2_PIN > -1
+    SET_OUTPUT(X_MS2_PIN);
+#endif
+#if Y_MS2_PIN > -1
+    SET_OUTPUT(Y_MS2_PIN);
+#endif
+#if Z_MS2_PIN > -1
+    SET_OUTPUT(Z_MS2_PIN);
+#endif
+#if E0_MS2_PIN > -1
+    SET_OUTPUT(E0_MS2_PIN);
+#endif
+#if E1_MS2_PIN > -1
+    SET_OUTPUT(E1_MS2_PIN);
+#endif
+    for(int i = 0; i <= 4; i++) microstepMode(i, microstep_modes[i]);
+#endif
+}
+
+/**
+\brief Execute the Arc command stored in com.
+*/
+#if ARC_SUPPORT
+void Commands::processArc(GCode *com) {
+    float position[Z_AXIS_ARRAY];
+    Printer::realPosition(position[X_AXIS],position[Y_AXIS],position[Z_AXIS]);
+    if(!Printer::setDestinationStepsFromGCode(com)) return; // For X Y Z E F
+    float offset[2] = {Printer::convertToMM(com->hasI() ? com->I : 0),Printer::convertToMM(com->hasJ() ? com->J : 0)};
+    float target[E_AXIS_ARRAY] = {Printer::realXPosition(),Printer::realYPosition(),Printer::realZPosition(),Printer::destinationSteps[E_AXIS]*Printer::invAxisStepsPerMM[E_AXIS]};
+    float r;
+    if (com->hasR()) {
+        /*
+        We need to calculate the center of the circle that has the designated radius and passes
+        through both the current position and the target position. This method calculates the following
+        set of equations where [x,y] is the vector from current to target position, d == magnitude of
+        that vector, h == hypotenuse of the triangle formed by the radius of the circle, the distance to
+        the center of the travel vector. A vector perpendicular to the travel vector [-y,x] is scaled to the
+        length of h [-y/d*h, x/d*h] and added to the center of the travel vector [x/2,y/2] to form the new point
+        [i,j] at [x/2-y/d*h, y/2+x/d*h] which will be the center of our arc.
+
+        d^2 == x^2 + y^2
+        h^2 == r^2 - (d/2)^2
+        i == x/2 - y/d*h
+        j == y/2 + x/d*h
+
+        O <- [i,j]
+        -  |
+        r      -     |
+        -        |
+        -           | h
+        -              |
+        [0,0] ->  C -----------------+--------------- T  <- [x,y]
+        | <------ d/2 ---->|
+
+        C - Current position
+        T - Target position
+        O - center of circle that pass through both C and T
+        d - distance from C to T
+        r - designated radius
+        h - distance from center of CT to O
+
+        Expanding the equations:
+
+        d -> sqrt(x^2 + y^2)
+        h -> sqrt(4 * r^2 - x^2 - y^2)/2
+        i -> (x - (y * sqrt(4 * r^2 - x^2 - y^2)) / sqrt(x^2 + y^2)) / 2
+        j -> (y + (x * sqrt(4 * r^2 - x^2 - y^2)) / sqrt(x^2 + y^2)) / 2
+
+        Which can be written:
+
+        i -> (x - (y * sqrt(4 * r^2 - x^2 - y^2))/sqrt(x^2 + y^2))/2
+        j -> (y + (x * sqrt(4 * r^2 - x^2 - y^2))/sqrt(x^2 + y^2))/2
+
+        Which we for size and speed reasons optimize to:
+
+        h_x2_div_d = sqrt(4 * r^2 - x^2 - y^2)/sqrt(x^2 + y^2)
+        i = (x - (y * h_x2_div_d))/2
+        j = (y + (x * h_x2_div_d))/2
+
+        */
+        r = Printer::convertToMM(com->R);
+        // Calculate the change in position along each selected axis
+        double x = target[X_AXIS]-position[X_AXIS];
+        double y = target[Y_AXIS]-position[Y_AXIS];
+
+        double h_x2_div_d = -sqrt(4 * r*r - x*x - y*y)/hypot(x,y); // == -(h * 2 / d)
+        // If r is smaller than d, the arc is now traversing the complex plane beyond the reach of any
+        // real CNC, and thus - for practical reasons - we will terminate promptly:
+        if(isnan(h_x2_div_d)) {
+            Com::printErrorFLN(Com::tInvalidArc);
+            return;
+        }
+        // Invert the sign of h_x2_div_d if the circle is counter clockwise (see sketch below)
+        if (com->G == 3) {
+            h_x2_div_d = -h_x2_div_d;
+        }
+
+        /* The counter clockwise circle lies to the left of the target direction. When offset is positive,
+        the left hand circle will be generated - when it is negative the right hand circle is generated.
+
+
+        T  <-- Target position
+
+        ^
+        Clockwise circles with this center         |          Clockwise circles with this center will have
+        will have > 180 deg of angular travel      |          < 180 deg of angular travel, which is a good thing!
+        \         |          /
+        center of arc when h_x2_div_d is positive ->  x <----- | -----> x <- center of arc when h_x2_div_d is negative
+        |
+        |
+
+        C  <-- Current position                                 */
+
+
+        // Negative R is g-code-alese for "I want a circle with more than 180 degrees of travel" (go figure!),
+        // even though it is advised against ever generating such circles in a single line of g-code. By
+        // inverting the sign of h_x2_div_d the center of the circles is placed on the opposite side of the line of
+        // travel and thus we get the unadvisably long arcs as prescribed.
+        if (r < 0) {
+            h_x2_div_d = -h_x2_div_d;
+            r = -r; // Finished with r. Set to positive for mc_arc
+        }
+        // Complete the operation by calculating the actual center of the arc
+        offset[0] = 0.5 * (x - (y * h_x2_div_d));
+        offset[1] = 0.5 * (y + (x * h_x2_div_d));
+
+    } else { // Offset mode specific computations
+        r = hypot(offset[0], offset[1]); // Compute arc radius for arc
+    }
+    // Set clockwise/counter-clockwise sign for arc computations
+    uint8_t isclockwise = com->G == 2;
+    // Trace the arc
+    PrintLine::arc(position, target, offset, r, isclockwise);
+}
+#endif
+
+/**
+\brief Execute the G command stored in com.
+*/
+void Commands::processGCode(GCode *com) {
+    uint32_t codenum; //throw away variable
+    switch(com->G) {
+        case 0: // G0 -> G1
+        case 1: // G1
+                if(com->hasS()) Printer::setNoDestinationCheck(com->S != 0);
+                if(Printer::setDestinationStepsFromGCode(com)) // For X Y Z E F
+                    PrintLine::queueCartesianMove(ALWAYS_CHECK_ENDSTOPS, true);
+#ifdef DEBUG_QUEUE_MOVE
+                {
+
+                    InterruptProtectedBlock noInts;
+                    int lc = (int)PrintLine::linesCount;
+                    int lp = (int)PrintLine::linesPos;
+                    int wp = (int)PrintLine::linesWritePos;
+                    int n = (wp - lp);
+                    if(n < 0) n += PRINTLINE_CACHE_SIZE;
+                    noInts.unprotect();
+                    if(n != lc)
+                        Com::printFLN(PSTR("Buffer corrupted"));
+                }
+#endif
+            break;
+#if ARC_SUPPORT
+        case 2: // CW Arc
+        case 3: // CCW Arc MOTION_MODE_CW_ARC: case MOTION_MODE_CCW_ARC:
+                processArc(com);
+            break;
+#endif
+        case 4: // G4 dwell
+            Commands::waitUntilEndOfAllMoves();
+            codenum = 0;
+            if(com->hasP()) codenum = com->P; // milliseconds to wait
+            if(com->hasS()) codenum = com->S * 1000; // seconds to wait
+            codenum += HAL::timeInMilliseconds();  // keep track of when we started waiting
+            while((uint32_t)(codenum-HAL::timeInMilliseconds())  < 2000000000 ) {
+                GCode::readFromSerial();
+                Commands::checkForPeriodicalActions(true);
+            }
+            break;
+        case 20: // G20 Units to inches
+            Printer::unitIsInches = 1;
+            break;
+        case 21: // G21 Units to mm
+            Printer::unitIsInches = 0;
+            break;
+        case 28: { //G28 Home all Axis one at a time
+                uint8_t homeAllAxis = (com->hasNoXYZ() && !com->hasE());
+                if(com->hasE())
+                    Printer::currentPositionSteps[E_AXIS] = 0;
+                if(homeAllAxis || !com->hasNoXYZ())
+                    Printer::homeAxis(homeAllAxis || com->hasX(),homeAllAxis || com->hasY(),homeAllAxis || com->hasZ());
+                Printer::updateCurrentPosition();
+            }
+            break;
+
+        case 90: // G90
+            Printer::relativeCoordinateMode = false;
+            if(com->internalCommand)
+                Com::printInfoFLN(PSTR("Absolute positioning"));
+            break;
+        case 91: // G91
+            Printer::relativeCoordinateMode = true;
+            if(com->internalCommand)
+                Com::printInfoFLN(PSTR("Relative positioning"));
+            break;
+        case 92: { // G92
+                float xOff = Printer::coordinateOffset[X_AXIS];
+                float yOff = Printer::coordinateOffset[Y_AXIS];
+                float zOff = Printer::coordinateOffset[Z_AXIS];
+                if(com->hasX()) xOff = Printer::convertToMM(com->X) - Printer::currentPosition[X_AXIS];
+                if(com->hasY()) yOff = Printer::convertToMM(com->Y) - Printer::currentPosition[Y_AXIS];
+                if(com->hasZ()) zOff = Printer::convertToMM(com->Z) - Printer::currentPosition[Z_AXIS];
+                Printer::setOrigin(xOff, yOff, zOff);
+                if(com->hasE()) {
+                    Printer::currentPositionSteps[E_AXIS] = Printer::convertToMM(com->E) * Printer::axisStepsPerMM[E_AXIS];
+                }
+            }
+            break;
+
+#if defined(NUM_MOTOR_DRIVERS) && NUM_MOTOR_DRIVERS > 0
+        case 201:
+            commandG201(*com);
+            break;
+        case 202:
+            commandG202(*com);
+            break;
+        case 203:
+            commandG203(*com);
+            break;
+        case 204:
+            commandG204(*com);
+            break;
+#endif // defined
+        default:
+            if(!EVENT_UNHANDLED_G_CODE(com) && Printer::debugErrors()) {
+                Com::printF(Com::tUnknownCommand);
+                com->printCommand();
+            }
+    }
+    previousMillisCmd = HAL::timeInMilliseconds();
+}
+/**
+\brief Execute the G command stored in com.
+*/
+void Commands::processMCode(GCode *com) {
+    switch( com->M ) {
+        case 3: // Spindle/laser on
+#if defined(SUPPORT_CNC) && SUPPORT_CNC
+            if(Printer::mode == PRINTER_MODE_CNC) {
+                waitUntilEndOfAllMoves();
+                CNCDriver::spindleOnCW(com->hasS() ? com->S : 0);
+            }
+#endif // defined
+            break;
+        case 4: // Spindle CCW
+#if defined(SUPPORT_CNC) && SUPPORT_CNC
+            if(Printer::mode == PRINTER_MODE_CNC) {
+                waitUntilEndOfAllMoves();
+                CNCDriver::spindleOnCCW(com->hasS() ? com->S : 0);
+            }
+#endif // defined
+            break;
+        case 5: // Spindle/laser off
+#if defined(SUPPORT_CNC) && SUPPORT_CNC
+            if(Printer::mode == PRINTER_MODE_CNC) {
+                waitUntilEndOfAllMoves();
+                CNCDriver::spindleOff();
+            }
+#endif // defined
+            break;
+        case 42: //M42 -Change pin status via gcode
+            if (com->hasP()) {
+                int pin_number = com->P;
+                for(uint8_t i = 0; i < (uint8_t)sizeof(sensitive_pins); i++) {
+                    if (pgm_read_byte(&sensitive_pins[i]) == pin_number) {
+                        pin_number = -1;
+                        break;
+                    }
+                }
+                if (pin_number > -1) {
+                    if(com->hasS()) {
+                        if(com->S >= 0 && com->S <= 255) {
+                            pinMode(pin_number, OUTPUT);
+                            digitalWrite(pin_number, com->S);
+                            analogWrite(pin_number, com->S);
+                            Com::printF(Com::tSetOutputSpace, pin_number);
+                            Com::printFLN(Com::tSpaceToSpace,(int)com->S);
+                        } else
+                            Com::printErrorFLN(PSTR("Illegal S value for M42"));
+                    } else {
+                        pinMode(pin_number, INPUT_PULLUP);
+                        Com::printF(Com::tSpaceToSpace, pin_number);
+                        Com::printFLN(Com::tSpaceIsSpace, digitalRead(pin_number));
+                    }
+                } else {
+                    Com::printErrorFLN(PSTR("Pin can not be set by M42, is in sensitive pins! "));
+                }
+            }
+            break;
+        case 80: // M80 - ATX Power On
+#if PS_ON_PIN>-1
+            Commands::waitUntilEndOfAllMoves();
+            previousMillisCmd = HAL::timeInMilliseconds();
+            SET_OUTPUT(PS_ON_PIN); //GND
+            Printer::setPowerOn(true);
+            WRITE(PS_ON_PIN, (POWER_INVERTING ? HIGH : LOW));
+#endif
+            break;
+        case 81: // M81 - ATX Power Off
+#if PS_ON_PIN>-1
+            Commands::waitUntilEndOfAllMoves();
+            SET_OUTPUT(PS_ON_PIN); //GND
+            Printer::setPowerOn(false);
+            WRITE(PS_ON_PIN,(POWER_INVERTING ? LOW : HIGH));
+#endif
+            break;
+        case 82: // M82
+            Printer::relativeExtruderCoordinateMode = false;
+            break;
+        case 83: // M83
+            Printer::relativeExtruderCoordinateMode = true;
+            break;
+        case 84: // M84
+            if(com->hasS()) {
+                stepperInactiveTime = com->S * 1000;
+            } else {
+                Commands::waitUntilEndOfAllMoves();
+                Printer::kill(true);
+            }
+            break;
+        case 85: // M85
+            if(com->hasS())
+                maxInactiveTime = (int32_t)com->S * 1000;
+            else
+                maxInactiveTime = 0;
+            break;
+        case 92: // M92
+            if(com->hasX()) Printer::axisStepsPerMM[X_AXIS] = com->X;
+            if(com->hasY()) Printer::axisStepsPerMM[Y_AXIS] = com->Y;
+            if(com->hasZ()) Printer::axisStepsPerMM[Z_AXIS] = com->Z;
+            Printer::updateDerivedParameter();
+            if(com->hasE()) {
+                Extruder::current->stepsPerMM = com->E;
+                Extruder::selectExtruderById(Extruder::current->id);
+            }
+            break;
+        case 99: { // M99 S<time>
+                millis_t wait = 10000;
+                if(com->hasS())
+                    wait = 1000*com->S;
+                if(com->hasX())
+                    Printer::disableXStepper();
+                if(com->hasY())
+                    Printer::disableYStepper();
+                if(com->hasZ())
+                    Printer::disableZStepper();
+                wait += HAL::timeInMilliseconds();
+#ifdef DEBUG_PRINT
+                debugWaitLoop = 2;
+#endif
+                while(wait-HAL::timeInMilliseconds() < 100000) {
+                    Printer::defaultLoopActions();
+                }
+                if(com->hasX())
+                    Printer::enableXStepper();
+                if(com->hasY())
+                    Printer::enableYStepper();
+                if(com->hasZ())
+                    Printer::enableZStepper();
+            }
+            break;
+
+        case 115: // M115
+            Com::printFLN(Com::tFirmware);
+            reportPrinterUsage();
+            Printer::reportPrinterMode();
+            break;
+        case 114: // M114
+            printCurrentPosition(PSTR("M114 "));
+            break;
+        case 117: // M117 message to lcd
+            if(com->hasString()) {
+                UI_STATUS_UPD_RAM(com->text);
+            }
+            break;
+        case 119: // M119
+            Commands::waitUntilEndOfAllMoves();
+            Endstops::update();
+            Endstops::update(); // double test to get right signal. Needed for crosstalk protection.
+            Endstops::report();
+            break;
+#if RAMP_ACCELERATION
+        case 201: // M201
+            if(com->hasX()) Printer::maxAccelerationMMPerSquareSecond[X_AXIS] = com->X;
+            if(com->hasY()) Printer::maxAccelerationMMPerSquareSecond[Y_AXIS] = com->Y;
+            if(com->hasZ()) Printer::maxAccelerationMMPerSquareSecond[Z_AXIS] = com->Z;
+            if(com->hasE()) Printer::maxAccelerationMMPerSquareSecond[E_AXIS] = com->E;
+            Printer::updateDerivedParameter();
+            break;
+        case 202: // M202
+            if(com->hasX()) Printer::maxTravelAccelerationMMPerSquareSecond[X_AXIS] = com->X;
+            if(com->hasY()) Printer::maxTravelAccelerationMMPerSquareSecond[Y_AXIS] = com->Y;
+            if(com->hasZ()) Printer::maxTravelAccelerationMMPerSquareSecond[Z_AXIS] = com->Z;
+            if(com->hasE()) Printer::maxTravelAccelerationMMPerSquareSecond[E_AXIS] = com->E;
+            Printer::updateDerivedParameter();
+            break;
+#endif
+        case 207: // M207 X<XY jerk> Z<Z Jerk>
+            if(com->hasX())
+                Printer::maxJerk = com->X;
+            if(com->hasE()) {
+                Extruder::current->maxStartFeedrate = com->E;
+                Extruder::selectExtruderById(Extruder::current->id);
+            }
+            Com::printFLN(Com::tJerkColon,Printer::maxJerk);
+            break;
+        case 220: // M220 S<Feedrate multiplier in percent>
+            changeFeedrateMultiply(com->getS(100));
+            break;
+        case 226: // M226 P<pin> S<state 0/1> - Wait for pin getting state S
+            if(!com->hasS() || !com->hasP())
+                break;
+            {
+                bool comp = com->S;
+                if(com->hasX()) {
+                    if(com->X == 0)
+                        HAL::pinMode(com->S,INPUT);
+                    else
+                        HAL::pinMode(com->S,INPUT_PULLUP);
+                }
+                do {
+                    Commands::checkForPeriodicalActions(true);
+                    GCode::keepAlive(WaitHeater);
+                } while(HAL::digitalRead(com->P) != comp);
+            }
+            break;
+        case 281: // Trigger watchdog
+#if FEATURE_WATCHDOG
+            {
+                if(com->hasX()) {
+                    HAL::stopWatchdog();
+                    Com::printFLN(PSTR("Watchdog disabled"));
+                    break;
+                }
+                Com::printInfoFLN(PSTR("Triggering watchdog. If activated, the printer will reset."));
+                Printer::kill(false);
+                HAL::delayMilliseconds(200); // write output, make sure heaters are off for safety
+#if !defined(__AVR_ATmega1280__) && !defined(__AVR_ATmega2560__)
+                InterruptProtectedBlock noInts;         // don't disable interrupts on mega2560 and mega1280 because of bootloader bug
+#endif
+                while(1) {} // Endless loop
+            }
+#else
+            Com::printInfoFLN(PSTR("Watchdog feature was not compiled into this version!"));
+#endif
+            break;
+
+
+#if FEATURE_SERVO
+        case 340: // M340
+            if(com->hasP() && com->P<4 && com->P>=0) {
+                int s = 0;
+                if(com->hasS())
+                    s = com->S;
+                uint16_t r = 0;
+                if(com->hasR())    // auto off time in ms
+                    r = com->R;
+                HAL::servoMicroseconds(com->P,s,r);
+            }
+            break;
+#endif // FEATURE_SERVO
+        case 350: { // M350 Set microstepping mode. Warning: Steps per unit remains unchanged. S code sets stepping mode for all drivers.
+                OUT_P_LN("Set Microstepping");
+#if defined(X_MS1_PIN) && X_MS1_PIN > -1
+                if(com->hasS()) for(int i = 0; i <= 4; i++) microstepMode(i, com->S);
+                if(com->hasX()) microstepMode(0, (uint8_t)com->X);
+                if(com->hasY()) microstepMode(1, (uint8_t)com->Y);
+                if(com->hasZ()) microstepMode(2, (uint8_t)com->Z);
+                if(com->hasE()) microstepMode(3, (uint8_t)com->E);
+                if(com->hasP()) microstepMode(4, com->P); // Original B but is not supported here
+                microstepReadings();
+#endif
+            }
+            break;
+        case 355: // M355 S<0/1> - Turn case light on/off, no S = report status
+            if(com->hasS()) {
+                Printer::setCaseLight(com->S);
+            } else
+                Printer::reportCaseLightStatus();
+            break;
+        case 360: // M360 - show configuration
+            Printer::showConfiguration();
+            break;
+        case 400: // M400 Finish all moves
+            Commands::waitUntilEndOfAllMoves();
+            break;
+        case 401: // M401 Memory position
+            Printer::MemoryPosition();
+            break;
+        case 402: // M402 Go to stored position
+            Printer::GoToMemoryPosition(com->hasX(),com->hasY(),com->hasZ(),com->hasE(),(com->hasF() ? com->F : Printer::feedrate));
+            break;
+        case 450:
+            Printer::reportPrinterMode();
+            break;
+        case 451:
+            Printer::mode = PRINTER_MODE_FFF;
+            Printer::reportPrinterMode();
+            break;
+        case 452:
+            Printer::reportPrinterMode();
+            break;
+        case 453:
+#if defined(SUPPORT_CNC) && SUPPORT_CNC
+            Printer::mode = PRINTER_MODE_CNC;
+#endif
+            Printer::reportPrinterMode();
+            break;
+#ifdef DEBUG_QUEUE_MOVE
+        case 533: { // M533 Write move data
+                InterruptProtectedBlock noInts;
+                int lc = (int)PrintLine::linesCount;
+                int lp = (int)PrintLine::linesPos;
+                int wp = (int)PrintLine::linesWritePos;
+                int n = (wp-lp);
+                if(n < 0) n += PRINTLINE_CACHE_SIZE;
+                noInts.unprotect();
+                if(n != lc)
+                    Com::printFLN(PSTR("Buffer corrupted"));
+                Com::printF(PSTR("Buf:"),lc);
+                Com::printF(PSTR(",LP:"),lp);
+                Com::printFLN(PSTR(",WP:"),wp);
+                if(PrintLine::cur == NULL) {
+                    Com::printFLN(PSTR("No move"));
+                    if(PrintLine::linesCount > 0) {
+                        PrintLine &cur = PrintLine::lines[PrintLine::linesPos];
+                        Com::printF(PSTR("JFlags:"), (int)cur.joinFlags);
+                        Com::printFLN(PSTR(" Flags:"), (int)cur.flags);
+                        if(cur.isWarmUp()) {
+                            Com::printFLN(PSTR(" warmup:"), (int)cur.getWaitForXLinesFilled());
+                        }
+                    }
+                } else {
+                    Com::printF(PSTR("Rem:"), PrintLine::cur->stepsRemaining);
+                    Com::printFLN(PSTR(" Int:"), Printer::interval);
+                }
+            }
+            break;
+#endif // DEBUG_QUEUE_MOVE
+#ifdef DEBUG_SEGMENT_LENGTH
+        case 534: // M534
+            Com::printFLN(PSTR("Max. segment size:"), Printer::maxRealSegmentLength);
+            if(com->hasS())
+                Printer::maxRealSegmentLength = 0;
+            break;
+#endif
+#ifdef DEBUG_REAL_JERK
+            Com::printFLN(PSTR("Max. jerk measured:"), Printer::maxRealJerk);
+            if(com->hasS())
+                Printer::maxRealJerk = 0;
+            break;
+#endif
+            /*      case 535:  // M535
+            Com::printF(PSTR("Last commanded position:"),Printer::lastCmdPos[X_AXIS]);
+            Com::printF(Com::tComma,Printer::lastCmdPos[Y_AXIS]);
+            Com::printFLN(Com::tComma,Printer::lastCmdPos[Z_AXIS]);
+            Com::printF(PSTR("Current position:"),Printer::currentPosition[X_AXIS]);
+            Com::printF(Com::tComma,Printer::currentPosition[Y_AXIS]);
+            Com::printFLN(Com::tComma,Printer::currentPosition[Z_AXIS]);
+            Com::printF(PSTR("Position steps:"),Printer::currentPositionSteps[X_AXIS]);
+            Com::printF(Com::tComma,Printer::currentPositionSteps[Y_AXIS]);
+            Com::printFLN(Com::tComma,Printer::currentPositionSteps[Z_AXIS]);
+            #if NONLINEAR_SYSTEM
+            Com::printF(PSTR("Nonlin. position steps:"),Printer::currentDeltaPositionSteps[A_TOWER]);
+            Com::printF(Com::tComma,Printer::currentDeltaPositionSteps[B_TOWER]);
+            Com::printFLN(Com::tComma,Printer::currentDeltaPositionSteps[C_TOWER]);
+            #endif // NONLINEAR_SYSTEM
+            break;*/
+            /* case 700: // M700 test new square root function
+            if(com->hasS())
+            Com::printFLN(Com::tInfo,(int32_t)HAL::integerSqrt(com->S));
+            break;*/
+        case 999: // Stop fatal error take down
+            if(com->hasS())
+                GCode::fatalError(PSTR("Testing fatal error"));
+            else
+                GCode::resetFatalError();
+            break;
+        default:
+            if(!EVENT_UNHANDLED_M_CODE(com) && Printer::debugErrors()) {
+                Com::printF(Com::tUnknownCommand);
+                com->printCommand();
+            }
+    }
+}
+
+/**
+\brief Execute the command stored in com.
+*/
+void Commands::executeGCode(GCode *com) {
+    if (INCLUDE_DEBUG_COMMUNICATION) {
+        if(Printer::debugCommunication()) {
+            if(com->hasG() || (com->hasM() && com->M != 111)) {
+                previousMillisCmd = HAL::timeInMilliseconds();
+                return;
+            }
+        }
+    }
+    if(com->hasG()) processGCode(com);
+    else if(com->hasM()) processMCode(com);
+    else if(com->hasT()) {    // Process T code
+        //com->printCommand(); // for testing if this the source of extruder switches
+        Commands::waitUntilEndOfAllMoves();
+        Extruder::selectExtruderById(com->T);
+    } else {
+        if(Printer::debugErrors()) {
+            Com::printF(Com::tUnknownCommand);
+            com->printCommand();
+        }
+    }
+#ifdef DEBUG_DRYRUN_ERROR
+    if(Printer::debugDryrun()) {
+        Com::printFLN("Dryrun was enabled");
+        com->printCommand();
+        Printer::debugReset(8);
+    }
+#endif
+
+}
+
+void Commands::emergencyStop() {
+#if defined(KILL_METHOD) && KILL_METHOD == 1
+    HAL::resetHardware();
+#else
+    //HAL::forbidInterrupts(); // Don't allow interrupts to do their work
+    Printer::kill(false);
+    HAL::delayMilliseconds(200);
+    InterruptProtectedBlock noInts;
+    while(1) {}
+#endif
+}
+
+void Commands::checkFreeMemory() {
+    int newfree = HAL::getFreeRam();
+    if(newfree < lowestRAMValue)
+        lowestRAMValue = newfree;
+}
+
+void Commands::writeLowestFreeRAM() {
+    if(lowestRAMValueSend > lowestRAMValue) {
+        lowestRAMValueSend = lowestRAMValue;
+        Com::printFLN(Com::tFreeRAM, lowestRAMValue);
+    }
+}

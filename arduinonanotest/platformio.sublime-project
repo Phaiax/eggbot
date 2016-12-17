@@ -84,7 +84,7 @@
 				}
 			],
 			"working_dir": "${project_path:${folder}}",
-			"selector": "source.c, source.c++",
+			"selector": "source.c, source.c++, source.ino",
 			"path": "/home/daniel/.platformio/platformio/bin:/home/daniel/usr/bin:/home/daniel/usr/bin/Sencha/Cmd/3.1.1.274:/home/daniel/.gem/ruby/1.9.1/bin:/opt/dart-sdk/bin:/home/daniel/usr/ign/Sencha:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/android-sdk/platform-tools:/opt/android-sdk/tools:/home/daniel/usr/ign/go/bin:/home/daniel/usr/ign/gopath/bin:/home/daniel/.cargo/bin"
 		}
 	],
@@ -95,6 +95,14 @@
 		},
 		{
 			"path": "../hostcontrol"
+		},
+		{
+			"path": "../Repetier-Firmware"
+		},
+		{
+			"path": "..",
+			"file_include_patterns" : ["*.scad"],
+			"name" : "scad"
 		}
 	]
 }

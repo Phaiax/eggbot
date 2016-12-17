@@ -5,3 +5,8 @@ authors = ["Phaiax <phaiax-git@invisibletower.de>"]
 
 [dependencies]
 serial = "0.3.4"
+futures = "0.1"
+tokio-core = "0.1"
+env_logger = "0.3.5"
+log = "*"
+error-chain = "0.7.1"
