@@ -6,6 +6,16 @@ module pen() {
     cylinder(h=l_pen_tip, r1=0, r2=r_pen, center=false, $fn=20);
 }
 
+module pen_ext() {
+    translate([0, 0, l_pen_tip])
+    cylinder(h=l_pen, r=r_pen, center=false, $fn=20);
+
+    translate([-r_pen, 0, l_pen_tip])
+    cube([r_pen*2, r_pen*2, l_pen]);
+
+    cylinder(h=l_pen_tip, r1=0, r2=r_pen, center=false, $fn=20);
+}
+
 module egg() {
 
     translate([0, 0, r_egg])
@@ -73,4 +83,29 @@ module bearing_with_mount(c="red",a=1.0) {
         rotate([0, 0, 90])
         bearingMount();
     }
+}
+
+module servo_mount(show_servo=1) {
+
+    difference() {
+        translate([0, -w_servo_mount/2, 0])
+        cube([h_servo_mount, w_servo_mount, d_servo]);
+        union() {
+            translate([-1, -w_servo/2, -1])
+            cube([h_servo_mount+2, w_servo, d_servo+2]);
+
+            for(i = [-1, 1]) {
+                translate([1, i*g_servo_screws/2, d_servo/2])
+                rotate([0, 90, 0])
+                cylinder(h=h_servo_mount+2, r=1, center=true, $fn=20);
+            }
+        }
+    }
+
+    if (show_servo) {
+        translate([15.9, w_servo/2, 0])
+        rotate([90, 0, -90])
+        servoSG90();
+    }
+
 }

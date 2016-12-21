@@ -31,6 +31,8 @@ h_pos_egg_center = 85;
 w_nema = 42.3;
 h_nema = 34;
 h_nema_shaft = 20;
+r_nema_big_cylinder = 12;
+
 r_egg = 45/2;
 z_egg_pos = 60;
 h_egg = r_egg+2*0.7*r_egg;
@@ -45,13 +47,20 @@ r_pen = 10/2;
 
 y_egg_center = 50;
 
+d_gear = 3;
+c_gears = "DarkOrchid";
+a_gears = 1;
+g_gear = 1; // 2*0.5
+
+d_arm_elevator_plate = 4;
+
 h_arm_levers = 5;
 w_arm_levers = 25;
 
 l_arm_rotating = 45;
 l_arm_second = y_egg_center;
 l_pen_standout = 20;
-g_armmotor_arm = h_laserwood + 5;
+g_armmotor_housingfront = h_laserwood + d_gear + g_gear + d_arm_elevator_plate;
 
 // LM8UU   8 mm    15 mm   24 mm
 h_lm8uu = 24;
@@ -62,11 +71,18 @@ ro_608zz = 22/2;
 ri_608zz = 8/2;
 h_608zz = 7;
 
+h_servo_mount = 3;
+w_servo = 23;
+d_servo = 11.8;
+g_servo_screws = 27.5;
+w_servo_mount = g_servo_screws + 5;
+
+
 h_rods = 200;
 g_rods_inner = w_nema + w_bearing_mount;
 r_rods = 4;
 g_rod_centers = g_rods_inner + r_rods;
-my_rod = h_laserwood + r_rods + 10;
+my_rod = d_bearing_mount + d_gear + g_gear + h_laserwood;
 x_rod = g_rod_centers/2;
 
 
@@ -86,9 +102,8 @@ h_linearmoovingtooth = 130;
 w_linearmoovingtooth = w_bearing_mount/2;
 
 r_gear = g_rod_centers/2;
-d_gear = 3;
-c_gears = "DarkOrchid";
-a_gears = 1;
+echo("Big gear radius: ", r_gear);
+echo("Side rods width: ", w_linearmoovingtooth);
 
 // block1 is the lower block and holds the rods.
 w_block1 = 90; // raspberry pi mount width
@@ -130,10 +145,10 @@ include <clamp.scad>
 include <eggholder.scad>
 
 
-//translate([-200, 0, 0])
+translate([-100, 0, 0])
 assembly();
 
-//lay_out();
+lay_out();
 
 //translate([0, 0, -10])
 //eggholder();
@@ -142,6 +157,8 @@ assembly();
 //topeggholder();
 
 module lay_out() {
+
+   translate([0, -140, 0])
    clamp();
 
    translate([100, 0, 0])
@@ -153,8 +170,21 @@ module lay_out() {
    translate([160, 80, 0])
    arm();
 
+   translate([0, -40, 0])
+   arm1();
+   arm2();
+
    translate([40, 160, 0])
    bearingMount();
+
+translate([-20, -20, 0])
+servo_mount();
+
+    translate([-473, -80, -22])
+    import("vertical_ARM_v2.stl");
+
+    translate([-1207, 850, 29])
+    import("pen_holder_v3.stl");
 }
 
 module assembly() {
