@@ -77,6 +77,8 @@ fn run_main() -> Result<()> {
 
 fn debug_console(cmd_tx_chan : Sender<Cmds>) -> Result<()> {
 
+    let mut servo_val = 100;
+
     let reader = BufReader::new(io::stdin());
     print!(">");
     use std::io::{BufRead, Write};
@@ -86,13 +88,21 @@ fn debug_console(cmd_tx_chan : Sender<Cmds>) -> Result<()> {
         if line == "h" {
             println!("HELP");
             println!("  q         Quit");
-            println!("  w         Servo");
+            println!("  w         Servo 240");
+            println!("  e         Servo 10");
             println!("  i         Invalid");
         } else if line == "q" {
             break;
         } else if line == "w" {
-            cmd_tx_chan.send(Cmds::SetServo(commands::SetServoCmd{ servoid : 0, value : 200 }))
+            servo_val -= 20;
+            cmd_tx_chan.send(Cmds::SetServo(commands::SetServoCmd{ servoid : 1, value : servo_val }))
                 .chain_err(|| "Cound not send cmd to serial thread")?;
+            println!("{:?}", servo_val);
+        } else if line == "e" {
+            servo_val += 20;
+            cmd_tx_chan.send(Cmds::SetServo(commands::SetServoCmd{ servoid : 1, value : servo_val }))
+                .chain_err(|| "Cound not send cmd to serial thread")?;
+            println!("{:?}", servo_val);
         } else if line == "i" {
             cmd_tx_chan.send(Cmds::Invalid(commands::InvalidCmd{ data : [30; 20] }))
                 .chain_err(|| "Cound not send cmd to serial thread")?;

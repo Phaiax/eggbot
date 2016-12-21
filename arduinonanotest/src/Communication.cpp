@@ -60,6 +60,8 @@ uint8_t Communication::get_data_length(CmdType type) {
     switch (type) {
         case SetServoCmdId:
             return sizeof(SetServoCmd);
+        case NoCmd:
+            return 0;
     }
     return 0;
 }
@@ -135,5 +137,17 @@ void Communication::communication_loop() {
 
 
 void Communication::process_current_cmd() {
-    blink();
+    switch (this->current_command_type) {
+        case SetServoCmdId:
+            if (current_command.set_servo.servoid == 0) {
+                Eggbot::move_servo0(current_command.set_servo.value);
+            }
+            else if (current_command.set_servo.servoid == 1) {
+                blink();
+                Eggbot::move_servo1(current_command.set_servo.value);
+            }
+            break;
+        case NoCmd:
+            break;
+    }
 }

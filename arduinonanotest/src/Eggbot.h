@@ -1,8 +1,8 @@
 
 
 class Eggbot {
-
+public:
     Eggbot();
-    void move_pen_to_drawing_position();
-    void move_pen_to_pause_position();
+    static void move_servo0(uint8_t position);
+    static void move_servo1(uint8_t position);
 };

@@ -148,5 +148,12 @@ e.1.backtrace
 
 e.backtrace()
 e.iter().next()
+e.cause() // next error
+e.kind()
+e.description()
+
+// create
+
+Error::from_kind()
 
 */

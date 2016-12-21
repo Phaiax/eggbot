@@ -39,7 +39,7 @@ struct SetServoCmd {
 
 union Cmd {
     uint8_t raw[32];
-    SetServoCmd setServo;
+    SetServoCmd set_servo;
 };
 
 class Communication {

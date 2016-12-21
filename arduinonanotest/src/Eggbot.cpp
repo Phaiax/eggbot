@@ -13,10 +13,10 @@ Eggbot::Eggbot() {
 }
 
 
-void Eggbot::move_pen_to_drawing_position() {
-    analogWrite(SERVO1_PIN, 10);
+void Eggbot::move_servo0(uint8_t position) {
+    analogWrite(SERVO0_PIN, position);
 }
 
-void Eggbot::move_pen_to_pause_position() {
-    analogWrite(SERVO1_PIN, 240);
+void Eggbot::move_servo1(uint8_t position) {
+    analogWrite(SERVO1_PIN, position);
 }

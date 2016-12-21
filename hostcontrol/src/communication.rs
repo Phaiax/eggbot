@@ -15,8 +15,15 @@ use std::thread::{JoinHandle, spawn};
 pub fn spawn_serial_thread() -> Result<(JoinHandle<Result<()>>, Sender<Cmds>)> {
     let (tx, rx) = channel();
 
-    let port = "/dev/ttyUSB0";
-    let mut port = serial::open(&port).chain_err(|| "Unable to open serial port.")?;
+    let mut port : Result<_> = Err(ErrorKind::Msg("dummy".into()).into());
+    for i in 0..3 {
+        let portpath = format!("/dev/ttyUSB{}", i);
+        port = serial::open(&portpath).chain_err(|| "Unable to open serial port.");
+        if port.is_ok() {
+            break;
+        }
+    }
+    let mut port = port?;
 
     reset_arduino(&mut port)?; // Blocking
 
@@ -49,7 +56,6 @@ fn process_cmds<T: SerialPort>(port: &mut T, cmd_rx_chan: &Receiver<Cmds>) -> Re
         for i in 1..number_of_tries + 1 {
             match execute_cmd(port, &cmd)? {
                 Response::Success => {
-                    info!("Acq");
                     break;
                 },
                 e => {
@@ -66,7 +72,6 @@ fn process_cmds<T: SerialPort>(port: &mut T, cmd_rx_chan: &Receiver<Cmds>) -> Re
                 }
             }
         }
-        info!("n");
     }
     Ok(())
 }
@@ -82,7 +87,8 @@ fn reset_arduino<T: SerialPort>(port: &mut T) -> Result<()> {
         })
         .chain_err(|| "Unable to configure serial port.")?;
 
-
+    port.flush()?;
+    empty_read_buffer(port)?;
     port.set_timeout(Duration::from_millis(3000))?;
     port.set_dtr(false)?;
     std::thread::sleep(Duration::from_secs(2));
@@ -106,7 +112,6 @@ fn execute_cmd<T: SerialPort>(port: &mut T, cmd: &Cmds) -> Result<Response> {
     let cmdtypeid = cmd.get_type_id();
     let data: &[u8] = extract_data(&cmd);
 
-    info!("Data: {} bytes", data.len());
     port.write_all(&[cmdtypeid])?;
     port.write_all(data)?;
     port.write_all(&[255])?; // 255 = end of transmission
