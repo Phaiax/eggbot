@@ -1,5 +1,5 @@
 
-module clamp() {
+module clamp(debug=true) {
 
 
     module lever(l_lever) {
@@ -18,7 +18,7 @@ module clamp() {
         rotate([90, 0, 0])
         translate([i*g_rod_centers/2, 0, 0])
         union() {
-            bearing_with_mount(c_clamp, a_clamp);
+            bearing_with_mount(debug, c_clamp, a_clamp);
             //spring(height=g_clamp_topbar);
         }
     }
@@ -65,19 +65,23 @@ module clamp() {
                 translate([0, 0, -h_lm8uu])
                 cylinder(r=ri_608zz+2, h=2*h_lm8uu);
             }
-            translate([0, 0, h_bearing_pos])
-            k608zz();
+            if (debug) {
+                translate([0, 0, h_bearing_pos])
+                k608zz();
+            }
         }
     }
 
-    // linear moving tooth
-    translate([0, d_bearing_mount,0])
-    union() {
+    if (debug) {
+        // linear moving tooth
+        translate([0, d_bearing_mount,0])
+        union() {
 
 
-        color(c_gears, a_gears)
-        translate([g_bearing_mounts/2+w_bearing_mount-w_linearmoovingtooth, 0, -h_linearmoovingtooth+l_bearing_mount])
-        cube(size=[w_linearmoovingtooth, d_gear, h_linearmoovingtooth], center=false);
+            color(c_gears, a_gears)
+            translate([g_bearing_mounts/2+w_bearing_mount-w_linearmoovingtooth, 0, -h_linearmoovingtooth+l_bearing_mount])
+            cube(size=[w_linearmoovingtooth, d_gear, h_linearmoovingtooth], center=false);
+        }
     }
 
 }

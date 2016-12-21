@@ -23,13 +23,13 @@ module arm_elevator_gear() {
     }
 }
 
-module arm_elevator() {
+module arm_elevator(debug=true) {
 
     for(i = [-1, 1]) {
         translate([i*g_rod_centers/2, 0, 0])
         union() {
 
-            bearing_with_mount();
+            bearing_with_mount(debug);
         }
     }
 
@@ -46,11 +46,13 @@ module arm_elevator() {
             cylinder(r=r_nema_big_cylinder, h=d_arm_elevator_plate+10);
 
         }
-        // gear
-        translate([0,w_nema/2,-d_gear])
-        rotate([0,0,0])
-        // color(c_gears, a_gears)
-        arm_elevator_gear();
+        if (debug) {
+            // gear
+            translate([0,w_nema/2,-d_gear])
+            rotate([0,0,0])
+            // color(c_gears, a_gears)
+            arm_elevator_gear();
+        }
     }
 
 }
@@ -113,25 +115,48 @@ module arm() {
 
 }
 
-
-module arm1() {
-        // the arm body
-        translate([-w_arm_levers/2, -w_arm_levers/2, g_housingfront_lever])
-        cube(size=[l_arm_rotating + w_arm_levers/2 + w_arm_hinge_outer/2,
-                   w_arm_levers,
-                   h_arm_levers],
-                   center=false);
-
-
-
-        // The reinforcement that connects the nema shaft to the arm
-        translate([0, 0, -h_laserwood-g_gear])
+module arm1_extra() {
+    difference() {
         cylinder(h=d_shaftholder_neg + h_arm_levers,
                  r=w_housingfront_slot/2 - g_housingfront_arm);
 
-        % translate([0, 0, -h_laserwood-d_gear-g_gear-d_arm_elevator_plate])
+        translate([0, 0, -d_gear-d_arm_elevator_plate])
         rotate([0, 0, 180])
         nema17shaft();
+    }
+}
+
+module arm1(debug=true) {
+        // the arm body
+
+        difference() {
+            union() {
+
+                translate([-w_arm_levers/2, -w_arm_levers/2, g_housingfront_lever])
+                cube(size=[l_arm_rotating + w_arm_levers/2 + w_arm_hinge_outer/2,
+                           w_arm_levers,
+                           h_arm_levers],
+                           center=false);
+
+            }
+
+            translate([0, 0, -h_laserwood-d_gear-g_gear-d_arm_elevator_plate])
+            rotate([0, 0, 180])
+            nema17shaft();
+        }
+
+        // not printable, print seperate and glue
+        if (debug) {
+            // The reinforcement that connects the nema shaft to the arm
+            translate([0, 0, -h_laserwood-g_gear])
+            arm1_extra();
+        }
+
+        if (debug) {
+            % translate([0, 0, -h_laserwood-d_gear-g_gear-d_arm_elevator_plate])
+            rotate([0, 0, 180])
+            nema17shaft();
+        }
 
         // hinge
         translate([l_arm_rotating, 0, 0])
@@ -158,15 +183,16 @@ module arm1() {
             }
         }
 
+
         // servo
         translate([x_arm_servo, -w_arm_levers/2 + h_servo_mount, 0])
         rotate([0,0, -90])
         translate([0, 0, h_arm_levers + g_housingfront_lever])
-        servo_mount(1);
+        servo_mount(debug);
 }
 
 
-module arm2() {
+module arm2(debug=true) {
 
 
 
@@ -217,10 +243,10 @@ module arm2() {
 
     }
 
-
-    // example pen
-    rotate([0,180,0])
-    % translate([0, l_arm_second, -l_pen_standout])
-    pen();
-
+    if (debug) {
+        // example pen
+        rotate([0,180,0])
+        % translate([0, l_arm_second, -l_pen_standout])
+        pen();
+    }
 }

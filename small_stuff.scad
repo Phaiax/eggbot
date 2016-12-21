@@ -72,11 +72,13 @@ module spring(height=50, radius=8, rounds=8) {
     circle(r = 1);
 }
 
-module bearing_with_mount(c="red",a=1.0) {
+module bearing_with_mount(debug=true,c="red",a=1.0) {
     translate([0, h_lm8uu+3, 0])
     union() {
-        rotate([90, 0, 0])
-        bearing();
+        if (debug) {
+            rotate([90, 0, 0])
+            bearing();
+        }
 
         color(c, a)
         translate([0, -h_lm8uu/2, -d_bearing_mount])

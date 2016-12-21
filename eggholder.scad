@@ -14,19 +14,27 @@ h_eggholder_shield=4;
 
 c_eggholder = "PeachPuff";
 
-module eggholder_moveup() {
+module eggholder_moveup(debug=true) {
     translate([0, 0, +mz_eggholder_nemashaft_top +h_nema_shaft])
-    eggholder();
+    eggholder(debug);
 }
 
-module eggholder() {
+module eggholder(debug=true) {
 
     color(c_eggholder)
     difference() {
-        // cylinder under gummi ring
-        translate([0, 0, -h_eggholder_cyl])
-        cylinder_with_hole(ri=ri_eggholder_cyl, ro=ro_eggholder_cyl,
-                            h=h_eggholder_cyl, $fn=20);
+        union() {
+
+            // cylinder under gummi ring
+            translate([0, 0, -h_eggholder_cyl])
+            cylinder_with_hole(ri=ri_eggholder_cyl, ro=ro_eggholder_cyl,
+                                h=h_eggholder_cyl, $fn=20);
+
+            // protector agains brogen eggs
+            color(c_eggholder)
+            translate([0,0,-h_eggholder_cyl])
+            cylinder(r=r_eggholder_shield, h=h_eggholder_shield);
+        }
 
         // cut out torus for gummi
         torus(ri_eggholder_gummi, r_eggholder_ring);
@@ -38,12 +46,9 @@ module eggholder() {
         nema17shaft();
     }
 
-    // protector agains brogen eggs
-    color(c_eggholder)
-    translate([0,0,-h_eggholder_cyl])
-    cylinder(r=r_eggholder_shield, h=h_eggholder_shield);
 
     // intermediate plate as max for motor shaft
+    color(c_eggholder)
     translate([0, 0, -mz_eggholder_insideplate-h_eggholder_insideplate])
     cylinder(r=(ro_eggholder_cyl+ri_eggholder_cyl)/2,
              h=h_eggholder_insideplate);
@@ -63,7 +68,7 @@ h_topeggholder_cyl2 = 10;
 ro_topeggholder_cyl2 = 11.5/2;
 ri_topeggholder_cyl2 = 4;
 
-module topeggholder() {
+module topeggholder(debug=true) {
     color(c_eggholder)
     difference() {
         // cylinder under gummi ring
@@ -97,6 +102,8 @@ module topeggholder() {
         cylinder(h=h_topeggholder_cyl2+2, r=ri_topeggholder_cyl2);
     }
 
-    cylinder_with_hole(ri=ri_topeggholder_cyl2, ro=ro_topeggholder_cyl2,
-                        h=h_topeggholder_cyl2, $fn=20);
+    if (debug) {
+        cylinder_with_hole(ri=ri_topeggholder_cyl2, ro=ro_topeggholder_cyl2,
+                            h=h_topeggholder_cyl2, $fn=20);
+    }
 }

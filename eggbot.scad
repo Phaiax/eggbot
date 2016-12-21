@@ -145,16 +145,41 @@ include <clamp.scad>
 include <eggholder.scad>
 
 
-translate([-100, 0, 0])
-assembly();
+//translate([-100, 0, 0])
+//assembly();
 
-lay_out();
+//lay_out();
+print();
 
 //translate([0, 0, -10])
 //eggholder();
 
 //translate([0, 0, 0])
 //topeggholder();
+
+module print() {
+
+    // print with support material
+   translate([0, 140, 0])
+   clamp(false);
+
+    translate([80, 80, 0])
+   arm_elevator(false);
+
+   translate([0, -40, 0])
+   arm1(false);
+   arm2(false);
+
+   arm1_extra();
+
+   translate([60, 40, 0])
+    eggholder_moveup(false);
+
+   translate([30, 0, 0])
+   rotate([180, 0, 0])
+    topeggholder(false);
+
+}
 
 module lay_out() {
 
