@@ -63,9 +63,10 @@ l_pen_standout = 20;
 g_armmotor_housingfront = h_laserwood + d_gear + g_gear + d_arm_elevator_plate;
 
 // LM8UU   8 mm    15 mm   24 mm
-h_lm8uu = 24;
-ri_lm8uu = 8/2;
-ro_lm8uu = 15/2;
+// LM10UU 10 mm    19 mm   29 mm
+h_lm8uu = 29; // h_lm8uu = 24;
+ri_lm8uu = 10/2; // ri_lm8uu = 8/2;
+ro_lm8uu = 19/2; // ro_lm8uu = 15/2;
 
 ro_608zz = 22/2;
 ri_608zz = 8/2;
@@ -160,22 +161,22 @@ print();
 module print() {
 
     // print with support material
-   translate([0, 140, 0])
-   clamp(false);
+//   translate([0, 140, 0])
+//   clamp(false);
 
-    translate([80, 80, 0])
-   arm_elevator(false);
-
-   translate([0, -40, 0])
-   arm1(false);
-   arm2(false);
-
-   arm1_extra();
-
-   translate([60, 40, 0])
-    eggholder_moveup(false);
-
-   translate([30, 0, 0])
+//    translate([80, 80, 0])
+//   arm_elevator(false);
+//
+//   translate([0, -40, 0])
+//   arm1(false);
+//   arm2(false);
+//
+//   arm1_extra();
+//
+//   translate([60, 40, 0])
+//    eggholder_moveup(false);
+//
+//   translate([30, 0, 0])
    rotate([180, 0, 0])
     topeggholder(false);
 

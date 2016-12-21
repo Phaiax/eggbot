@@ -1,12 +1,12 @@
 
-r_eggholder_ring = 4;
-ri_eggholder_gummi = 2;
+r_eggholder_ring = 15.5/2;
+ri_eggholder_gummi = 3/2;
 
 ri_eggholder_cyl = r_eggholder_ring - ri_eggholder_gummi;
 ro_eggholder_cyl = r_eggholder_ring + ri_eggholder_gummi;
 h_eggholder_cyl = 20;
-h_eggholder_insideplate = 4;
-mz_eggholder_insideplate = 2;
+h_eggholder_insideplate = 3;
+mz_eggholder_insideplate = 3;
 mz_eggholder_nemashaft_top = mz_eggholder_insideplate +h_eggholder_insideplate;
 
 r_eggholder_shield=20;
