@@ -41,9 +41,18 @@ module arm_elevator(debug=true) {
             translate([-g_bearing_mounts/2,0,0])
             cube([g_bearing_mounts, w_nema, d_arm_elevator_plate]);
 
-            // hole for nema shaft
             translate([0, w_nema/2, -1])
-            cylinder(r=r_nema_big_cylinder, h=d_arm_elevator_plate+10);
+            union() {
+                // hole for nema shaft
+                cylinder(r=r_nema_big_cylinder, h=d_arm_elevator_plate+10);
+
+                for(i=[-1,1]) {
+                    for(j=[-1,1]) {
+                        translate([i*31/2, j*31/2, 0])
+                        cylinder(h=d_arm_elevator_plate+10, r=1, center=false, $fn=20);
+                    }
+                }
+            }
 
         }
         if (debug) {
